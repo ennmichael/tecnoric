@@ -3,9 +3,12 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"flag"
+	"log"
 	"math/rand"
 	"net/http"
 	"net/http/cookiejar"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -14,6 +17,15 @@ import (
 const omniaBaseURL = "https://b2b.omniacomponents.com/"
 
 func main() {
+	categoryID := flag.String("category", "", "the category to scrape")
+	outputFileName := flag.String("output", "omnia.json", "output file name")
+	flag.Parse()
+
+	categoryIDInt, err := strconv.Atoi(*categoryID)
+	if err != nil {
+		panic(err)
+	}
+
 	jar, err := cookiejar.New(nil)
 	if err != nil {
 		panic(err)
@@ -24,7 +36,20 @@ func main() {
 	}
 
 	logIntoOmnia(client)
-	getItems(client, 1327)
+	items := getItems(client, categoryIDInt)
+
+	outputFile, err := os.Create(*outputFileName)
+	if err != nil {
+		panic(err)
+	}
+
+	jsonEncoder := json.NewEncoder(outputFile)
+	err = jsonEncoder.Encode(items)
+	if err != nil {
+		panic(err)
+	}
+
+	log.Printf("output written to %v\n", *outputFileName)
 }
 
 func logIntoOmnia(c *http.Client) {
@@ -54,6 +79,8 @@ func logIntoOmnia(c *http.Client) {
 	if response.User == nil {
 		panic("failed login, the credentials are likely incorrect")
 	}
+
+	log.Println("logged in successfully")
 }
 
 func omniaJSONRequest(method, endpoint string, data interface{}) *http.Request {
@@ -97,13 +124,24 @@ func getItems(c *http.Client, categoryID int) []item {
 			randomDelay()
 
 			technicalDetails := getTechnicalDetails(c, product.ID)
+			var originalCodes []string
+			technicalDescription := ""
+			if technicalDetails != nil && technicalDetails.OriginalCodes != nil {
+				originalCodes = SplitAndTrim(*technicalDetails.OriginalCodes, ",")
+			}
+			if technicalDetails != nil && technicalDetails.TechnicalDescription != nil {
+				technicalDescription = *technicalDetails.TechnicalDescription
+			}
+
 			item := item{
 				Code:          product.Code,
-				Description:   product.Name + *technicalDetails.TechnicalDescription,
+				Description:   product.Name + technicalDescription,
 				ImageURL:      product.Image,
-				OriginalCodes: strings.Split(*technicalDetails.OriginalCodes, ","),
+				OriginalCodes: originalCodes,
 			}
 			result = append(result, item)
+
+			log.Printf("scraped item %#v.\n", item)
 		}
 	}
 }
@@ -189,5 +227,17 @@ func getTechnicalDetails(c *http.Client, productID int) *technicalDetails {
 		panic(err)
 	}
 
+	if len(techsheetRes) == 0 || len(techsheetRes[0].Data.General) == 0 {
+		return nil
+	}
+
 	return &techsheetRes[0].Data.General[0]
+}
+
+func SplitAndTrim(s, sep string) []string {
+	var result []string
+	for _, ss := range strings.Split(s, sep) {
+		result = append(result, strings.TrimSpace(ss))
+	}
+	return result
 }
