@@ -10,7 +10,8 @@ import (
 	"net/http/cookiejar"
 	"os"
 	"strconv"
-	"strings"
+	"tecnoric"
+	"tecnoric/utils"
 	"time"
 )
 
@@ -23,30 +24,36 @@ func main() {
 
 	categoryIDInt, err := strconv.Atoi(*categoryID)
 	if err != nil {
-		panic(err)
+		log.Fatalf("error converting %s to integer: %v", *categoryID, err)
 	}
 
 	jar, err := cookiejar.New(nil)
 	if err != nil {
-		panic(err)
+		log.Fatalf("error creating a new CookieJar: %v", err)
 	}
 
 	client := &http.Client{
 		Jar: jar,
 	}
 
-	logIntoOmnia(client)
-	items := getItems(client, categoryIDInt)
-
 	outputFile, err := os.Create(*outputFileName)
 	if err != nil {
-		panic(err)
+		log.Fatalf("error creating the output file: %v", err)
 	}
+
+	defer func() {
+		if err := outputFile.Close(); err != nil {
+			log.Fatalf("error closing the output file: %v", err)
+		}
+	}()
+
+	logIntoOmnia(client)
+	items := getItems(client, categoryIDInt)
 
 	jsonEncoder := json.NewEncoder(outputFile)
 	err = jsonEncoder.Encode(items)
 	if err != nil {
-		panic(err)
+		log.Fatalf("error encoding json: %v", err)
 	}
 
 	log.Printf("output written to %v\n", *outputFileName)
@@ -68,16 +75,16 @@ func logIntoOmnia(c *http.Client) {
 	}))
 
 	if err != nil {
-		panic(err)
+		log.Fatalf("error logging into the website: %v", err)
 	}
 
 	var response loginResponse
 	if err := json.NewDecoder(res.Body).Decode(&response); err != nil {
-		panic(err)
+		log.Fatalf("error decoding the login response: %v", err)
 	}
 
 	if response.User == nil {
-		panic("failed login, the credentials are likely incorrect")
+		log.Fatalf("login failed, the credentials are likely incorrect")
 	}
 
 	log.Println("logged in successfully")
@@ -86,12 +93,12 @@ func logIntoOmnia(c *http.Client) {
 func omniaJSONRequest(method, endpoint string, data interface{}) *http.Request {
 	body := bytes.NewBuffer(nil)
 	if err := json.NewEncoder(body).Encode(data); err != nil {
-		panic(err)
+		log.Fatalf("error encoding JSON request %v: %v", data, err)
 	}
 
 	r, err := http.NewRequest(method, omniaBaseURL+endpoint, body)
 	if err != nil {
-		panic(err)
+		log.Fatalf("error sending JSON request %#v: %v", body.String(), err)
 	}
 
 	addHeaders(r)
@@ -103,15 +110,8 @@ func addHeaders(r *http.Request) {
 	r.Header.Add("Content-Type", "application/json")
 }
 
-type item struct {
-	Code          string   `json:"code"`
-	OriginalCodes []string `json:"original_codes"`
-	Description   string   `json:"description"`
-	ImageURL      string   `json:"image_url"`
-}
-
-func getItems(c *http.Client, categoryID int) []item {
-	var result []item
+func getItems(c *http.Client, categoryID int) []tecnoric.Product {
+	var result []tecnoric.Product
 
 	for i := 1; ; i++ {
 		productList := getProductList(c, categoryID, i)
@@ -127,13 +127,13 @@ func getItems(c *http.Client, categoryID int) []item {
 			var originalCodes []string
 			technicalDescription := ""
 			if technicalDetails != nil && technicalDetails.OriginalCodes != nil {
-				originalCodes = SplitAndTrim(*technicalDetails.OriginalCodes, ",")
+				originalCodes = utils.SplitAndTrim(*technicalDetails.OriginalCodes, ",")
 			}
 			if technicalDetails != nil && technicalDetails.TechnicalDescription != nil {
 				technicalDescription = *technicalDetails.TechnicalDescription
 			}
 
-			item := item{
+			item := tecnoric.Product{
 				Code:          product.Code,
 				Description:   product.Name + technicalDescription,
 				ImageURL:      product.Image,
@@ -186,12 +186,12 @@ func getProductList(c *http.Client, categoryID int, index int) *productListRespo
 	}))
 
 	if err != nil {
-		panic(err)
+		log.Fatalf("error getting the products list: %v", err)
 	}
 
 	productListResponse := &productListResponse{}
 	if err := json.NewDecoder(res.Body).Decode(&productListResponse); err != nil {
-		panic(err)
+		log.Fatalf("error decoding the products list: %v", err)
 	}
 	return productListResponse
 }
@@ -220,11 +220,11 @@ func getTechnicalDetails(c *http.Client, productID int) *technicalDetails {
 		Filter:    []struct{}{},
 	}))
 	if err != nil {
-		panic(err)
+		log.Fatalf("error getting the technical details for %d: %v", productID, err)
 	}
 	var techsheetRes []techsheetResponse
 	if err := json.NewDecoder(res.Body).Decode(&techsheetRes); err != nil {
-		panic(err)
+		log.Fatalf("error decoding the technical details: %v", err)
 	}
 
 	if len(techsheetRes) == 0 || len(techsheetRes[0].Data.General) == 0 {
@@ -232,12 +232,4 @@ func getTechnicalDetails(c *http.Client, productID int) *technicalDetails {
 	}
 
 	return &techsheetRes[0].Data.General[0]
-}
-
-func SplitAndTrim(s, sep string) []string {
-	var result []string
-	for _, ss := range strings.Split(s, sep) {
-		result = append(result, strings.TrimSpace(ss))
-	}
-	return result
 }

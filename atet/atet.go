@@ -7,7 +7,8 @@ import (
 	"github.com/gocolly/colly/v2"
 	"log"
 	"os"
-	"strings"
+	"tecnoric"
+	"tecnoric/utils"
 	"time"
 )
 
@@ -28,7 +29,13 @@ func main() {
 		log.Fatalf("error creating or opening file %v: %v\n", outputFileName, err)
 	}
 
-	items, err := ScrapeATET(targetURL)
+	defer func() {
+		if err := outputFile.Close(); err != nil {
+			log.Fatalf("error closing the output file: %v", err)
+		}
+	}()
+
+	items, err := scrapeATET(targetURL)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -42,15 +49,8 @@ func main() {
 	log.Printf("output written to %v\n", outputFileName)
 }
 
-type item struct {
-	Code          string   `json:"code"`
-	OriginalCodes []string `json:"original_codes"`
-	Description   string   `json:"description"`
-	ImageURL      string   `json:"image_url"`
-}
-
-func ScrapeATET(targetURL string) ([]item, error) {
-	var result []item
+func scrapeATET(targetURL string) ([]tecnoric.Product, error) {
+	var result []tecnoric.Product
 
 	const domain = "atet-ricambi.it"
 
@@ -72,10 +72,10 @@ func ScrapeATET(targetURL string) ([]item, error) {
 	})
 
 	c.OnHTML(".ProductExt", func(e *colly.HTMLElement) {
-		item := item{
-			Code:          ExtractValue(e.ChildText(".inner h5")),
-			OriginalCodes: ScrapeOriginalCodes(e),
-			Description:   ExtractValue(e.ChildText(".inner > p.ProductNotes.ProductTitle")),
+		item := tecnoric.Product{
+			Code:          extractValue(e.ChildText(".inner h5")),
+			OriginalCodes: scrapeOriginalCodes(e),
+			Description:   extractValue(e.ChildText(".inner > p.ProductNotes.ProductTitle")),
 			ImageURL:      e.Request.AbsoluteURL(e.ChildAttr("img", "src")),
 		}
 		result = append(result, item)
@@ -99,33 +99,25 @@ func ScrapeATET(targetURL string) ([]item, error) {
 	return result, nil
 }
 
-func ExtractValue(text string) string {
-	split := SplitAndTrim(text, ":")
+func extractValue(text string) string {
+	split := utils.SplitAndTrim(text, ":")
 	if len(split) < 2 {
 		return ""
 	}
 	return split[1]
 }
 
-func ScrapeOriginalCodes(e *colly.HTMLElement) []string {
+func scrapeOriginalCodes(e *colly.HTMLElement) []string {
 	var result []string
 	for _, childText := range e.ChildTexts(".inner div .ProductNotes") {
-		codes := ExtractValue(childText)
+		codes := extractValue(childText)
 		if codes == "" {
 			continue
 		}
 
-		for _, code := range SplitAndTrim(codes, "-") {
+		for _, code := range utils.SplitAndTrim(codes, "-") {
 			result = append(result, code)
 		}
-	}
-	return result
-}
-
-func SplitAndTrim(s, sep string) []string {
-	var result []string
-	for _, ss := range strings.Split(s, sep) {
-		result = append(result, strings.TrimSpace(ss))
 	}
 	return result
 }
