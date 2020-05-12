@@ -1,7 +1,6 @@
 package woocommerce
 
 import (
-	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/url"
@@ -21,18 +20,17 @@ func New(key, secret string) *Woocommerce {
 	}
 }
 
-func (w *Woocommerce) request(method, endpoint string, data interface{}) (*http.Request, error) {
-	body := bytes.NewBuffer(nil)
-	if err := json.NewEncoder(body).Encode(data); err != nil {
-		return nil, err
-	}
-
+func (w *Woocommerce) request(method, endpoint string, values url.Values) (*http.Request, error) {
 	query := url.Values{
 		"consumer_key":    []string{w.key},
 		"consumer_secret": []string{w.secret},
 	}
 
-	req, err := http.NewRequest(method, apiUrl+endpoint+"?"+query.Encode(), body)
+	for k, v := range values {
+		query[k] = v
+	}
+
+	req, err := http.NewRequest(method, apiUrl+endpoint+"?"+query.Encode(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -41,13 +39,9 @@ func (w *Woocommerce) request(method, endpoint string, data interface{}) (*http.
 }
 
 func (w *Woocommerce) Search(query string) ([]Product, error) {
-	type productsRequest struct {
-		Search string `json:"search"`
-	}
-
 	type productsResponse = []Product
 
-	req, err := w.request("GET", "products", productsRequest{Search: query})
+	req, err := w.request("GET", "products", url.Values{"search": []string{query}})
 	if err != nil {
 		return nil, err
 	}
