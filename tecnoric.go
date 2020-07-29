@@ -20,3 +20,13 @@ type PartialProduct struct {
 	AtetCode  *string `json:"atet_code"`
 	OmniaCode *string `json:"omnia_code"`
 }
+
+type FinalProduct struct {
+	Name        string `json:"name"`
+	AtetCode    string `json:"atet_code"`
+	OmniaCode   string `json:"omnia_code"`
+	SKU         string `json:"sku"`
+	Price       string `json:"price"`
+	ImageURL    string `json:"image_url"`
+	Description string `json:"description"`
+}
