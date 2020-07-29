@@ -39,8 +39,6 @@ func (w *Woocommerce) request(method, endpoint string, values url.Values) (*http
 }
 
 func (w *Woocommerce) Search(query string) ([]Product, error) {
-	type productsResponse = []Product
-
 	req, err := w.request("GET", "products", url.Values{"search": []string{query}})
 	if err != nil {
 		return nil, err
@@ -51,7 +49,7 @@ func (w *Woocommerce) Search(query string) ([]Product, error) {
 		return nil, err
 	}
 
-	var products productsResponse
+	var products []Product
 	if err := json.NewDecoder(res.Body).Decode(&products); err != nil {
 		return nil, err
 	}
