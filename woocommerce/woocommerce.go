@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 )
@@ -81,7 +80,6 @@ func (w *Woocommerce) CreateProduct(product Product) error {
 		return err
 	}
 
-	log.Printf("%s\n", body)
 	req, err := w.request("POST", "products", url.Values{}, body)
 	if err != nil {
 		return err

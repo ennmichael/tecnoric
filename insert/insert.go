@@ -38,7 +38,9 @@ func insertProducts(products []tecnoric.FinalProduct, category string) {
 		})
 
 		if err != nil {
-			log.Println(err)
+			log.Printf("Error adding %s: %s\n", product.Name, err)
+		} else {
+			log.Printf("Added %s\n", product.Name)
 		}
 	}
 }
