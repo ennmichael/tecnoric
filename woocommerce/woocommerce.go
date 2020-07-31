@@ -108,7 +108,7 @@ type Product struct {
 	Name        string     `json:"name"`
 	Description string     `json:"short_description"`
 	SKU         string     `json:"sku"`
-	Price       string     `json:"price"`
+	Price       string     `json:"regular_price"`
 	Categories  []Category `json:"categories"`
 	Images      []Image    `json:"images"`
 }

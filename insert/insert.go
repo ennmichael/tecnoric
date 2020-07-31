@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"tecnoric"
 	"tecnoric/woocommerce"
@@ -9,28 +10,35 @@ import (
 
 func main() {
 	inputFileName := flag.String("input", "", "input JSON file with final products")
+	categoryName := flag.String("category", "", "the name of the category")
 	flag.Parse()
 
 	products := tecnoric.LoadFinalProducts(*inputFileName)
-	insertProducts(products)
+	insertProducts(products, *categoryName)
 }
 
-func insertProducts(products []tecnoric.FinalProduct) {
+func insertProducts(products []tecnoric.FinalProduct, category string) {
 	w := woocommerce.New()
-	err := w.CreateProduct(woocommerce.Product{
-		Name:        "primer",
-		Description: "opis",
-		SKU:         "123",
-		Price:       "250,00",
-		Categories: []woocommerce.Category{
-			{ID: 2},
-		},
-		Images: []woocommerce.Image{
-			{Source: "https://www.tecnoricambi.rs/scraped-images/167AC01.jpeg"},
-		},
-	})
 
+	categories, err := w.SearchCategories(category)
 	if err != nil {
-		log.Panic(err)
+		log.Panicf("Error getting categories: %s", err)
+	}
+
+	for _, product := range products {
+		err := w.CreateProduct(woocommerce.Product{
+			Name:        fmt.Sprintf("%s %s %s", product.Name, product.AtetCode, product.OmniaCode),
+			Description: product.Description,
+			SKU:         product.SKU,
+			Price:       product.Price,
+			Categories:  categories,
+			Images: []woocommerce.Image{
+				{Source: product.ImageURL},
+			},
+		})
+
+		if err != nil {
+			log.Println(err)
+		}
 	}
 }
