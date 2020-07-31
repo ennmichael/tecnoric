@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"flag"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -21,30 +20,13 @@ func main() {
 	outputFileName := flag.String("output", "", "output file name")
 	flag.Parse()
 
-	finalProducts := loadFinalProducts(*inputFileName)
+	finalProducts := tecnoric.LoadFinalProducts(*inputFileName)
 	downloadImages(*imagesDir, finalProducts)
 	saveFinalProducts(*outputFileName, finalProducts)
 }
 
-func loadFinalProducts(fileName string) (result []tecnoric.FinalProduct) {
-	f, err := os.Open(fileName)
-	if err != nil {
-		log.Panicf("Error opening file %s: %s", fileName, err)
-	}
-
-	defer f.Close()
-
-	if err = json.NewDecoder(f).Decode(&result); err != nil {
-		log.Panicf("Error decoding JSON: %s\n", err)
-	}
-
-	return
-}
-
 func downloadImages(outputDir string, finalProducts []tecnoric.FinalProduct) {
-	year := time.Now().Year()
-	month := int(time.Now().Month())
-	for _, product := range finalProducts {
+	for k, product := range finalProducts {
 		time.Sleep(200 * time.Millisecond)
 
 		u, err := url.Parse(product.ImageURL)
@@ -54,17 +36,35 @@ func downloadImages(outputDir string, finalProducts []tecnoric.FinalProduct) {
 
 		if product.ImageURL != "" {
 			split := strings.Split(u.Path, "/")
-			localName := path.Join(outputDir, split[len(split)-1])
-			log.Printf("Downloading %s to %s", product.ImageURL, localName)
-			download(product.ImageURL, localName)
-			product.ImageURL = fmt.Sprintf(
-				"https://www.tecnoricambi.rs/wp-content/uploads/%d/%02d/%s", year, month, localName)
+			localName := split[len(split)-1]
+			localPath := path.Join(outputDir, localName)
+			log.Printf("Downloading %s to %s", product.ImageURL, localPath)
+			if download(product.ImageURL, localPath) {
+				product.ImageURL = "https://www.tecnoricambi.rs/scraped-images/" + localName
+			} else {
+				product.ImageURL = ""
+			}
+
+			finalProducts[k] = product
 		}
 	}
 }
 
-func download(url string, outputFileName string) {
+func download(url string, outputFileName string) bool {
 	res, err := http.DefaultClient.Get(url)
+	if err != nil {
+		log.Panicf("Error GETting %s: %s", url, err)
+	}
+
+	contentType := strings.Split(res.Header.Get("Content-Type"), "/")
+	if contentType[0] != "image" {
+		return false
+	}
+
+	if path.Ext(outputFileName) == "" {
+		outputFileName += "." + strings.ToLower(contentType[1])
+	}
+
 	f, err := os.Create(outputFileName)
 	if err != nil {
 		log.Panicf("Error opening %s: %s\n", outputFileName, err)
@@ -74,6 +74,8 @@ func download(url string, outputFileName string) {
 	defer f.Close()
 
 	io.Copy(f, res.Body)
+
+	return true
 }
 
 func saveFinalProducts(outputFileName string, products []tecnoric.FinalProduct) {
