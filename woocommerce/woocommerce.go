@@ -47,12 +47,12 @@ func (w *Woocommerce) request(
 }
 
 func (w *Woocommerce) SearchProducts(query string) (result []Product, err error) {
-	err = w.search("products", query, result)
+	err = w.search("products", query, &result)
 	return
 }
 
 func (w *Woocommerce) SearchCategories(query string) (result []Category, err error) {
-	err = w.search("categories", query, result)
+	err = w.search("products/categories", query, &result)
 	return
 }
 
@@ -67,7 +67,7 @@ func (w *Woocommerce) search(endpoint, query string, result interface{}) error {
 		return err
 	}
 
-	if err := json.NewDecoder(res.Body).Decode(&result); err != nil {
+	if err := json.NewDecoder(res.Body).Decode(result); err != nil {
 		return err
 	}
 
@@ -105,7 +105,6 @@ func (w *Woocommerce) CreateProduct(product Product) error {
 type Product struct {
 	Name        string     `json:"name"`
 	Description string     `json:"short_description"`
-	SKU         string     `json:"sku"`
 	Price       string     `json:"regular_price"`
 	Categories  []Category `json:"categories"`
 	Images      []Image    `json:"images"`

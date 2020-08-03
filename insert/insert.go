@@ -25,20 +25,26 @@ func insertProducts(products []tecnoric.FinalProduct, category string) {
 		log.Panicf("Error getting categories: %s", err)
 	}
 
+	log.Printf("Kategorije: %#v\n", categories)
+
 	for _, product := range products {
+		var images []woocommerce.Image
+		if product.ImageURL != "" {
+			images = []woocommerce.Image{
+				{Source: product.ImageURL},
+			}
+		}
+
 		err := w.CreateProduct(woocommerce.Product{
-			Name:        fmt.Sprintf("%s %s %s", product.Name, product.AtetCode, product.OmniaCode),
+			Name:        fmt.Sprintf("%s %s %s %s", product.Name, product.AtetCode, product.OmniaCode, product.SKU),
 			Description: product.Description,
-			SKU:         product.SKU,
 			Price:       product.Price,
 			Categories:  categories,
-			Images: []woocommerce.Image{
-				{Source: product.ImageURL},
-			},
+			Images:      images,
 		})
 
 		if err != nil {
-			log.Printf("Error adding %s: %s\n", product.Name, err)
+			log.Printf("Error adding %s with image %s: %s\n", product.Name, product.ImageURL, err)
 		} else {
 			log.Printf("Added %s\n", product.Name)
 		}

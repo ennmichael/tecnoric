@@ -18,7 +18,7 @@ import (
 const omniaBaseURL = "https://b2b.omniacomponents.com/"
 
 func main() {
-	categoryID := flag.String("category", "", "the category to scrape")
+	categoryID := flag.String("category", "", "ID of the category to scrape, found in the URL")
 	outputFileName := flag.String("output", "omnia.json", "output file name")
 	flag.Parse()
 
