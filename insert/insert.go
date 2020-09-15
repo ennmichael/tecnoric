@@ -25,9 +25,14 @@ func insertProducts(products []tecnoric.FinalProduct, category string) {
 		log.Panicf("Error getting categories: %s", err)
 	}
 
-	log.Printf("Kategorije: %#v\n", categories)
+	log.Printf("Categories: %#v\n", categories)
 
 	for _, product := range products {
+		if product.SKU == "" || product.SKU == "NE" {
+			log.Printf("Skipped %s because no SKU was provided", product.Name)
+			continue
+		}
+
 		var images []woocommerce.Image
 		if product.ImageURL != "" {
 			images = []woocommerce.Image{
